@@ -17,11 +17,17 @@ Azure OpenAI 認証情報 + ダミーモードの設定ファイル。
 """
 
 import os
+from dotenv import load_dotenv
+
+# .env ファイルが存在すれば読み込む
+load_dotenv()
 
 # ── ダミー API スイッチ ──────────────────────────────────────────────
 # True  → ダミー応答を返す（課金なし、GUI テスト用）
 # False → 実際の Azure OpenAI API を呼び出す
-USE_DUMMY_API: bool = True
+# 環境変数で "false" (大文字小文字問わず) が指定された場合のみ False
+_dummy = os.getenv("USE_DUMMY_API", "True").lower()
+USE_DUMMY_API: bool = (_dummy != "false")
 
 # ── Azure OpenAI 認証情報 ────────────────────────────────────────────
 AZURE_OPENAI_ENDPOINT = os.getenv(
