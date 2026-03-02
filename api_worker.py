@@ -87,11 +87,18 @@ class ApiWorker(QThread):
             else:
                 # ── 本番モード（Azure OpenAI） ────────────────────────
                 from openai import AzureOpenAI
+                import httpx
+
+                http_client = None
+                if getattr(config, "DISABLE_SSL_VERIFY", False):
+                    print("[PopAI API] WARNING: SSL証明書の検証を無効にしています (DISABLE_SSL_VERIFY=True)")
+                    http_client = httpx.Client(verify=False)
 
                 client = AzureOpenAI(
                     azure_endpoint = config.AZURE_OPENAI_ENDPOINT,
                     api_key        = config.AZURE_OPENAI_API_KEY,
                     api_version    = config.AZURE_OPENAI_API_VERSION,
+                    http_client    = http_client,
                 )
                 system_prompt = SYSTEM_PROMPTS.get(self._button_key, "")
                 messages = []

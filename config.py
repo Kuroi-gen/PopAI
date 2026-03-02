@@ -49,3 +49,8 @@ AZURE_OPENAI_API_VERSION = os.getenv(
     "AZURE_OPENAI_API_VERSION",
     "2024-02-01"
 )
+
+# ── SSL証明書検証の無効化（社内プロキシ等用） ──────────────────────────
+# True にすると、Azure OpenAI 通信時に SSL 証明書の検証を行いません。
+_disable_ssl = os.getenv("DISABLE_SSL_VERIFY", "False").lower()
+DISABLE_SSL_VERIFY: bool = (_disable_ssl == "true")
