@@ -70,11 +70,21 @@ Azure OpenAIのAPIキーなどを設定するために `.env` ファイルを作
 USE_DUMMY_API=True
 
 # ====== Azure OpenAI 認証情報 ======
-AZURE_OPENAI_ENDPOINT="https://YOUR_RESOURCE.openai.azure.com/"
+AZURE_OPENAI_ENDPOINT="https://YOUR_RESOURCE.openai.azure.com"
 AZURE_OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 AZURE_OPENAI_DEPLOYMENT_NAME="your_deployment_name"
 AZURE_OPENAI_API_VERSION="2024-02-01"
+
+# ====== プロキシ情報（社内ネットワーク等の場合） ======
+# プロキシ環境下の場合、以下を設定してください。不要な場合は削除、または行頭に # を付けてください。
+# 書式例: http://{username}:{password}@proxyserver:port
+HTTP_PROXY="http://{username}:{password}@proxyserver:port"
+HTTPS_PROXY="http://{username}:{password}@proxyserver:port"
 ```
+
+> **⚠️ 注意点**
+> `AZURE_OPENAI_ENDPOINT` に設定するURLの末尾には、**スラッシュ (`/`) を含めないよう**にしてください。
+> 例: `https://YOUR_RESOURCE.openai.azure.com` (末尾の / は不要)
 
 ※まずは `USE_DUMMY_API=True` のままで起動し、UIが問題なく動くか（フリーズしないか等）を確認することをお勧めします。
 

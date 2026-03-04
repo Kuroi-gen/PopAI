@@ -4,6 +4,7 @@ Azure OpenAI API との通信を担当する QThread サブクラス。
 config.USE_DUMMY_API = True の間はダミー応答を返す。
 """
 
+import os
 import time
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -89,10 +90,30 @@ class ApiWorker(QThread):
                 from openai import AzureOpenAI
                 import httpx
 
-                http_client = None
+                client_kwargs = {}
                 if getattr(config, "DISABLE_SSL_VERIFY", False):
                     print("[PopAI API] WARNING: SSL証明書の検証を無効にしています (DISABLE_SSL_VERIFY=True)")
-                    http_client = httpx.Client(verify=False)
+                    client_kwargs["verify"] = False
+
+                http_proxy = os.getenv("HTTP_PROXY")
+                https_proxy = os.getenv("HTTPS_PROXY")
+                
+                proxies = {}
+                if http_proxy:
+                    proxies["http://"] = http_proxy
+                if https_proxy:
+                    proxies["https://"] = https_proxy
+                
+                if proxies:
+                    print(f"[PopAI API] INFO: プロキシ設定を適用します")
+                    # httpx 0.28.0 以降の複数プロキシ指定、または単一proxy指定
+                    # 単一指定のプロキシ情報として fallback でも使えるよう proxy 引数を使うこともあります。
+                    # ここでは httpx の standard な proxies 引数を使用します。
+                    client_kwargs["proxies"] = proxies
+
+                http_client = None
+                if client_kwargs:
+                    http_client = httpx.Client(**client_kwargs)
 
                 client = AzureOpenAI(
                     azure_endpoint = config.AZURE_OPENAI_ENDPOINT,
