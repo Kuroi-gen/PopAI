@@ -22,10 +22,10 @@ class FloatWindow(QWidget):
     """
 
     BUTTONS = [
-        ("要約 (S)", "S", "#4CAF50", "選択テキストを要約します"),
-        ("質問 (Q)", "Q", "#2196F3", "選択テキストについて質問します"),
-        ("和訳 (J)", "J", "#FF9800", "選択テキストを日本語に翻訳します"),
-        ("チャット (C)", "C", "#9C27B0", "チャットを開始します"),
+        ("要約(&S)", "S", "#4CAF50", "選択テキストを要約します (Alt+S)"),
+        ("質問(&Q)", "Q", "#2196F3", "選択テキストについて質問します (Alt+Q)"),
+        ("添削(&T)", "T", "#FF9800", "選択テキストを添削します (Alt+T)"),
+        ("チャット(&C)", "C", "#9C27B0", "チャットを開始します (Alt+C)"),
     ]
 
     def __init__(self, parent=None):
@@ -84,8 +84,7 @@ class FloatWindow(QWidget):
         self._input_area = QTextEdit()
         self._input_area.setObjectName("inputArea")
         self._input_area.setPlaceholderText("クリップボードのテキストがここに表示されます...")
-        self._input_area.setMinimumHeight(90)
-        self._input_area.setMaximumHeight(160)
+        self._input_area.setMinimumHeight(150)
         self._input_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout.addWidget(self._input_area)
 
@@ -119,8 +118,9 @@ class FloatWindow(QWidget):
 
         root_layout.addWidget(self._container)
 
-        self.setMinimumWidth(520)
-        self.setMaximumWidth(760)
+        self.setMinimumWidth(800)
+        self.setMinimumHeight(600)
+        self.resize(800, 600)
 
     def _make_button(self, label: str, key: str, color: str, tip: str) -> QPushButton:
         btn = QPushButton(label)
@@ -129,9 +129,6 @@ class FloatWindow(QWidget):
         btn.setObjectName(f"btn_{key}")
         btn.setProperty("btnColor", color)
         btn.clicked.connect(lambda _, k=key: self._on_button_clicked(k))
-
-        sc = QShortcut(QKeySequence(key), self)
-        sc.activated.connect(btn.click)
         return btn
 
     # ------------------------------------------------------------------ #
@@ -173,7 +170,7 @@ class FloatWindow(QWidget):
                 border: 1px solid rgba(255,255,255,0.07);
                 border-radius: 8px;
                 font-family: "Consolas", "Yu Gothic UI", monospace;
-                font-size: 12px;
+                font-size: 12pt;
                 padding: 8px;
                 selection-background-color: #264F78;
             }
@@ -190,7 +187,7 @@ class FloatWindow(QWidget):
                 border: 1px solid rgba(156, 39, 176, 0.3);
                 border-radius: 8px;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
-                font-size: 13px;
+                font-size: 12pt;
                 padding: 10px;
                 selection-background-color: #264F78;
             }
@@ -198,7 +195,7 @@ class FloatWindow(QWidget):
             QPushButton[btnColor="#4CAF50"] {
                 background-color: #4CAF50; color:white; border:none;
                 border-radius:8px; font-weight:bold;
-                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:13px;
+                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }
             QPushButton[btnColor="#4CAF50"]:hover   { background-color:#66BB6A; }
             QPushButton[btnColor="#4CAF50"]:pressed  { background-color:#388E3C; }
@@ -207,7 +204,7 @@ class FloatWindow(QWidget):
             QPushButton[btnColor="#2196F3"] {
                 background-color: #2196F3; color:white; border:none;
                 border-radius:8px; font-weight:bold;
-                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:13px;
+                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }
             QPushButton[btnColor="#2196F3"]:hover   { background-color:#42A5F5; }
             QPushButton[btnColor="#2196F3"]:pressed  { background-color:#1565C0; }
@@ -216,7 +213,7 @@ class FloatWindow(QWidget):
             QPushButton[btnColor="#FF9800"] {
                 background-color: #FF9800; color:white; border:none;
                 border-radius:8px; font-weight:bold;
-                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:13px;
+                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }
             QPushButton[btnColor="#FF9800"]:hover   { background-color:#FFA726; }
             QPushButton[btnColor="#FF9800"]:pressed  { background-color:#E65100; }
@@ -225,7 +222,7 @@ class FloatWindow(QWidget):
             QPushButton[btnColor="#9C27B0"] {
                 background-color: #9C27B0; color:white; border:none;
                 border-radius:8px; font-weight:bold;
-                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:13px;
+                font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }
             QPushButton[btnColor="#9C27B0"]:hover   { background-color:#AB47BC; }
             QPushButton[btnColor="#9C27B0"]:pressed  { background-color:#6A1B9A; }
@@ -288,7 +285,7 @@ class FloatWindow(QWidget):
         self._result_area.setStyleSheet(
             "QTextEdit { color: #FF6B6B; background-color: rgba(80,10,10,200); "
             "border: 1px solid rgba(255,80,80,0.4); border-radius:8px; "
-            "font-family:'Segoe UI','Yu Gothic UI',sans-serif; font-size:13px; padding:10px; }"
+            "font-family:'Segoe UI','Yu Gothic UI',sans-serif; font-size:12pt; padding:10px; }"
         )
 
     def _set_buttons_enabled(self, enabled: bool):
