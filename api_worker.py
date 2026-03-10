@@ -98,17 +98,13 @@ class ApiWorker(QThread):
                 http_proxy = os.getenv("HTTP_PROXY")
                 https_proxy = os.getenv("HTTPS_PROXY")
                 
-                proxy = {}
-                if http_proxy:
-                    proxy["http://"] = http_proxy
-                
-                if proxy:
-                    print(f"[PopAI API] INFO: プロキシ設定を適用します")
-                    # httpx 0.28.0 以降の複数プロキシ指定、または単一proxy指定
-                    # 単一指定のプロキシ情報として fallback でも使えるよう proxy 引数を使うこともあります。
+                # HTTPS_PROXY を優先し、なければ HTTP_PROXY を使用する
+                proxy_url = https_proxy or http_proxy
+                if proxy_url:
+                    print(f"[PopAI API] INFO: プロキシ設定を適用します ({proxy_url})")
+                    client_kwargs["proxy"] = proxy_url
 
-                http_client = None
-                http_client = httpx.Client(proxy=http_proxy)
+                http_client = httpx.Client(**client_kwargs)
 
                 client = AzureOpenAI(
                     azure_endpoint = config.AZURE_OPENAI_ENDPOINT,
