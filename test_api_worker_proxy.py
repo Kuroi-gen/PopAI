@@ -37,6 +37,8 @@ class TestApiWorkerProxy(unittest.TestCase):
         worker = ApiWorker(button_key="C", user_text="Hello")
 
         with patch.dict(os.environ, {"HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
+            import api_worker
+            api_worker._azure_client = None  # Reset cache for testing
             worker.run()
             mock_httpx_client.assert_called_with(proxy="http://my.proxy:8080")
 
@@ -46,6 +48,8 @@ class TestApiWorkerProxy(unittest.TestCase):
         worker = ApiWorker(button_key="C", user_text="Hello")
 
         with patch.dict(os.environ, {"HTTPS_PROXY": "https://my.secure.proxy:8443", "HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
+            import api_worker
+            api_worker._azure_client = None  # Reset cache for testing
             worker.run()
             mock_httpx_client.assert_called_with(proxy="https://my.secure.proxy:8443")
 
@@ -55,23 +59,12 @@ class TestApiWorkerProxy(unittest.TestCase):
         worker = ApiWorker(button_key="C", user_text="Hello")
 
         with patch.dict(os.environ, {}, clear=True):
+            import api_worker
+            api_worker._azure_client = None  # Reset cache for testing
             worker.run()
             mock_httpx_client.assert_called_with()
 
-    @patch('httpx.Client')
-    @patch('openai.AzureOpenAI')
-    def test_proxy_kwargs_with_disable_ssl(self, mock_azure, mock_httpx_client):
-        worker = ApiWorker(button_key="C", user_text="Hello")
-
-        # 実行時に config.DISABLE_SSL_VERIFY = True になるように一時的に変更
-        orig_val = getattr(config, "DISABLE_SSL_VERIFY", False)
-        config.DISABLE_SSL_VERIFY = True
-        try:
-            with patch.dict(os.environ, {"HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
-                worker.run()
-                mock_httpx_client.assert_called_with(proxy="http://my.proxy:8080", verify=False)
-        finally:
-            config.DISABLE_SSL_VERIFY = orig_val
+    # Disable SSL verify test is removed as it's been forbidden and removed from the application
 
 if __name__ == '__main__':
     unittest.main()
