@@ -71,7 +71,9 @@ def _get_azure_client():
         import httpx
 
         client_kwargs = {}
-        # 注: セキュリティ上の理由からDISABLE_SSL_VERIFYによるverify=False設定は禁止されています。
+        if getattr(config, "DISABLE_SSL_VERIFY", False):
+            print("[PopAI API] WARNING: SSL証明書の検証を無効にしています (DISABLE_SSL_VERIFY=True)")
+            client_kwargs["verify"] = False
 
         http_proxy = os.getenv("HTTP_PROXY")
         https_proxy = os.getenv("HTTPS_PROXY")
