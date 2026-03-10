@@ -37,6 +37,8 @@ class TestApiWorkerProxy(unittest.TestCase):
         worker = ApiWorker(button_key="C", user_text="Hello")
 
         with patch.dict(os.environ, {"HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
+            import api_worker
+            api_worker._azure_client = None  # Reset cache for testing
             worker.run()
             mock_httpx_client.assert_called_with(proxy="http://my.proxy:8080")
 
@@ -46,6 +48,8 @@ class TestApiWorkerProxy(unittest.TestCase):
         worker = ApiWorker(button_key="C", user_text="Hello")
 
         with patch.dict(os.environ, {"HTTPS_PROXY": "https://my.secure.proxy:8443", "HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
+            import api_worker
+            api_worker._azure_client = None  # Reset cache for testing
             worker.run()
             mock_httpx_client.assert_called_with(proxy="https://my.secure.proxy:8443")
 
@@ -55,6 +59,8 @@ class TestApiWorkerProxy(unittest.TestCase):
         worker = ApiWorker(button_key="C", user_text="Hello")
 
         with patch.dict(os.environ, {}, clear=True):
+            import api_worker
+            api_worker._azure_client = None  # Reset cache for testing
             worker.run()
             mock_httpx_client.assert_called_with()
 
@@ -68,6 +74,8 @@ class TestApiWorkerProxy(unittest.TestCase):
         config.DISABLE_SSL_VERIFY = True
         try:
             with patch.dict(os.environ, {"HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
+                import api_worker
+                api_worker._azure_client = None  # Reset cache for testing
                 worker.run()
                 mock_httpx_client.assert_called_with(proxy="http://my.proxy:8080", verify=False)
         finally:

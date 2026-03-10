@@ -56,6 +56,46 @@ class DummyApiClient:
 
 
 # ================================================================== #
+# API クライアント キャッシュ
+# ================================================================== #
+_azure_client = None
+
+def _get_azure_client():
+    """
+    AzureOpenAIクライアントをシングルトン的に生成して返す。
+    configやプロキシ環境変数が後から変更されることは想定しない。
+    """
+    global _azure_client
+    if _azure_client is None:
+        from openai import AzureOpenAI
+        import httpx
+
+        client_kwargs = {}
+        if getattr(config, "DISABLE_SSL_VERIFY", False):
+            print("[PopAI API] WARNING: SSL証明書の検証を無効にしています (DISABLE_SSL_VERIFY=True)")
+            client_kwargs["verify"] = False
+
+        http_proxy = os.getenv("HTTP_PROXY")
+        https_proxy = os.getenv("HTTPS_PROXY")
+
+        # HTTPS_PROXY を優先し、なければ HTTP_PROXY を使用する
+        proxy_url = https_proxy or http_proxy
+        if proxy_url:
+            print(f"[PopAI API] INFO: プロキシ設定を適用します ({proxy_url})")
+            client_kwargs["proxy"] = proxy_url
+
+        http_client = httpx.Client(**client_kwargs)
+
+        _azure_client = AzureOpenAI(
+            azure_endpoint = config.AZURE_OPENAI_ENDPOINT,
+            api_key        = config.AZURE_OPENAI_API_KEY,
+            api_version    = config.AZURE_OPENAI_API_VERSION,
+            http_client    = http_client,
+        )
+    return _azure_client
+
+
+# ================================================================== #
 # API ワーカースレッド
 # ================================================================== #
 class ApiWorker(QThread):
@@ -87,31 +127,7 @@ class ApiWorker(QThread):
 
             else:
                 # ── 本番モード（Azure OpenAI） ────────────────────────
-                from openai import AzureOpenAI
-                import httpx
-
-                client_kwargs = {}
-                if getattr(config, "DISABLE_SSL_VERIFY", False):
-                    print("[PopAI API] WARNING: SSL証明書の検証を無効にしています (DISABLE_SSL_VERIFY=True)")
-                    client_kwargs["verify"] = False
-
-                http_proxy = os.getenv("HTTP_PROXY")
-                https_proxy = os.getenv("HTTPS_PROXY")
-                
-                # HTTPS_PROXY を優先し、なければ HTTP_PROXY を使用する
-                proxy_url = https_proxy or http_proxy
-                if proxy_url:
-                    print(f"[PopAI API] INFO: プロキシ設定を適用します ({proxy_url})")
-                    client_kwargs["proxy"] = proxy_url
-
-                http_client = httpx.Client(**client_kwargs)
-
-                client = AzureOpenAI(
-                    azure_endpoint = config.AZURE_OPENAI_ENDPOINT,
-                    api_key        = config.AZURE_OPENAI_API_KEY,
-                    api_version    = config.AZURE_OPENAI_API_VERSION,
-                    http_client    = http_client,
-                )
+                client = _get_azure_client()
                 system_prompt = SYSTEM_PROMPTS.get(self._button_key, "")
                 messages = []
                 if system_prompt:
