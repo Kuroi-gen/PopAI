@@ -6,7 +6,8 @@ float_window.py
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QTextEdit, QLabel, QSizePolicy, QFrame
+    QPushButton, QTextEdit, QLabel, QSizePolicy, QFrame,
+    QApplication
 )
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QCursor, QKeySequence, QShortcut, QColor
@@ -238,7 +239,6 @@ class FloatWindow(QWidget):
         self._result_area.clear()
         self._set_buttons_enabled(True)
 
-        from PyQt6.QtWidgets import QApplication
         screen = QApplication.primaryScreen().geometry()
         cursor_pos = QCursor.pos()
 

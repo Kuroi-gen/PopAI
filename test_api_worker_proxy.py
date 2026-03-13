@@ -11,6 +11,9 @@ class DummyQThread:
 sys.modules['PyQt6'] = MagicMock()
 sys.modules['PyQt6.QtCore'] = MagicMock()
 sys.modules['PyQt6.QtCore'].QThread = DummyQThread # 継承できるようにダミークラスにする
+sys.modules['dotenv'] = MagicMock()
+sys.modules['httpx'] = MagicMock()
+sys.modules['openai'] = MagicMock()
 
 # configモジュールをインポート前にモックする
 import config
