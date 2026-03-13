@@ -78,8 +78,8 @@ def _get_azure_client():
         http_proxy = os.getenv("HTTP_PROXY")
         https_proxy = os.getenv("HTTPS_PROXY")
 
-        # HTTPS_PROXY を優先し、なければ HTTP_PROXY を使用する
-        proxy_url = https_proxy or http_proxy
+        # HTTP_PROXY を優先し、なければ HTTPS_PROXY を使用する
+        proxy_url = http_proxy or https_proxy
         if proxy_url:
             print(f"[PopAI API] INFO: プロキシ設定を適用します ({proxy_url})")
             client_kwargs["proxy"] = proxy_url
