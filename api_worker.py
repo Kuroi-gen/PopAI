@@ -81,7 +81,7 @@ def _get_azure_client():
         # Memory guidelines state: Proxy settings prioritize HTTPS_PROXY over HTTP_PROXY
         # HTTP_PROXY を優先し、なければ HTTPS_PROXY を使用する (Old comment left for context, but logic changed)
         # 実際にはHTTPS_PROXYを優先するように修正
-        proxy_url = https_proxy or http_proxy
+        proxy_url = http_proxy or https_proxy
         if proxy_url:
             print(f"[PopAI API] INFO: プロキシ設定を適用します ")
             client_kwargs["proxy"] = proxy_url
