@@ -13,24 +13,48 @@ from pynput import keyboard as pynput_kb
 from PyQt6.QtCore import QThread, pyqtSignal
 
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
 # ------------------------------------------------------------------ #
 # 正規化済みホットキーの定義
 # ------------------------------------------------------------------ #
-HOTKEY_NORMALIZED = frozenset([
-    pynput_kb.Key.ctrl,
-    pynput_kb.Key.alt,
-    pynput_kb.Key.space,
-])
+def _parse_global_shortcut():
+    shortcut_str = os.getenv("GLOBAL_SHORTCUT", "ctrl+shift+space")
+    parts = shortcut_str.lower().split('+')
 
-HOTKEY_MODIFIERS = frozenset([
-    pynput_kb.Key.ctrl,
-    pynput_kb.Key.alt,
-    pynput_kb.Key.space,
-    pynput_kb.Key.ctrl_l,
-    pynput_kb.Key.ctrl_r,
-    pynput_kb.Key.alt_l,
-    pynput_kb.Key.alt_r,
-])
+    normalized = set()
+    modifiers = set()
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # pynput_kb.Key に存在するかどうかを確認 (例: ctrl, shift, space)
+        if hasattr(pynput_kb.Key, part):
+            key = getattr(pynput_kb.Key, part)
+            normalized.add(key)
+            modifiers.add(key)
+
+            # 左右の修飾キーも許可リストに追加
+            if part == 'ctrl':
+                modifiers.update([pynput_kb.Key.ctrl_l, pynput_kb.Key.ctrl_r])
+            elif part == 'alt':
+                modifiers.update([pynput_kb.Key.alt_l, pynput_kb.Key.alt_r])
+            elif part == 'shift':
+                modifiers.update([pynput_kb.Key.shift_l, pynput_kb.Key.shift_r])
+        else:
+            # それ以外は通常の文字キーとみなす (例: 'c', '1')
+            key = pynput_kb.KeyCode.from_char(part)
+            normalized.add(key)
+            modifiers.add(key)
+
+    return frozenset(normalized), frozenset(modifiers), shortcut_str
+
+HOTKEY_NORMALIZED, HOTKEY_MODIFIERS, HOTKEY_STRING = _parse_global_shortcut()
 
 
 # ------------------------------------------------------------------ #
@@ -125,11 +149,14 @@ def send_keys(*inputs: INPUT) -> int:
 def release_hotkey_keys() -> None:
     """ホットキー修飾キーをソフトに解放する（extended key フラグも考慮）。"""
     KEYEVENTF_EXTENDEDKEY = 0x0001
+    # 汎用的に修飾キーを解放する
+    VK_SHIFT = 0x10
     send_keys(
         _ki(VK_CONTROL, KEYEVENTF_KEYUP),
         _ki(VK_CONTROL, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY),
         _ki(VK_MENU,    KEYEVENTF_KEYUP),
         _ki(VK_MENU,    KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY),
+        _ki(VK_SHIFT,   KEYEVENTF_KEYUP),
         _ki(VK_SPACE,   KEYEVENTF_KEYUP),
     )
 
@@ -187,23 +214,32 @@ class HotkeyThread(QThread):
     @staticmethod
     def _normalize(key):
         mapping = {
-            pynput_kb.Key.ctrl_l: pynput_kb.Key.ctrl,
-            pynput_kb.Key.ctrl_r: pynput_kb.Key.ctrl,
-            pynput_kb.Key.alt_l:  pynput_kb.Key.alt,
-            pynput_kb.Key.alt_r:  pynput_kb.Key.alt,
+            pynput_kb.Key.ctrl_l:  pynput_kb.Key.ctrl,
+            pynput_kb.Key.ctrl_r:  pynput_kb.Key.ctrl,
+            pynput_kb.Key.alt_l:   pynput_kb.Key.alt,
+            pynput_kb.Key.alt_r:   pynput_kb.Key.alt,
+            pynput_kb.Key.shift_l: pynput_kb.Key.shift,
+            pynput_kb.Key.shift_r: pynput_kb.Key.shift,
+            pynput_kb.Key.cmd_l:   pynput_kb.Key.cmd,
+            pynput_kb.Key.cmd_r:   pynput_kb.Key.cmd,
         }
         return mapping.get(key, key)
 
     def _on_press(self, key):
-        normalized = self._normalize(key)
+        # pynput が渡してくる key が文字の場合、文字コードの違い（大文字/小文字）などを吸収する
+        if hasattr(key, 'char') and key.char is not None:
+            normalized = pynput_kb.KeyCode.from_char(key.char.lower())
+        else:
+            normalized = self._normalize(key)
 
-        if normalized in (pynput_kb.Key.ctrl, pynput_kb.Key.alt):
+        if normalized in (pynput_kb.Key.ctrl, pynput_kb.Key.alt, pynput_kb.Key.shift):
             hwnd = _user32.GetForegroundWindow()
             if hwnd:
                 self._prev_hwnd = hwnd
 
         self._current_keys.add(normalized)
 
+        # すべての修飾キーとトリガーキーが押されているか判定する
         if HOTKEY_NORMALIZED.issubset(self._current_keys) and not self._triggered:
             self._triggered = True
             self._keys_released.clear()
@@ -211,10 +247,14 @@ class HotkeyThread(QThread):
             threading.Thread(target=self._fetch_clipboard, daemon=True).start()
 
     def _on_release(self, key):
-        normalized = self._normalize(key)
+        if hasattr(key, 'char') and key.char is not None:
+            normalized = pynput_kb.KeyCode.from_char(key.char.lower())
+        else:
+            normalized = self._normalize(key)
+
         self._current_keys.discard(normalized)
 
-        if normalized == pynput_kb.Key.space:
+        if normalized in HOTKEY_NORMALIZED:
             self._triggered = False
 
         if not (self._current_keys & HOTKEY_MODIFIERS):
@@ -243,7 +283,7 @@ class HotkeyThread(QThread):
         self.clipboard_ready.emit(text)
 
     def run(self):
-        print(f"[PopAI] ホットキー監視スレッド開始 (Ctrl+Alt+Space) INPUT_SIZE={_sizeof_INPUT}")
+        print(f"[PopAI] ホットキー監視スレッド開始 ({HOTKEY_STRING}) INPUT_SIZE={_sizeof_INPUT}")
         with pynput_kb.Listener(
             on_press=self._on_press,
             on_release=self._on_release,

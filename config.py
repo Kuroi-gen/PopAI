@@ -20,7 +20,7 @@ import os
 from dotenv import load_dotenv
 
 # .env ファイルが存在すれば読み込む
-load_dotenv()
+load_dotenv(override=True)
 
 # ── ダミー API スイッチ ──────────────────────────────────────────────
 # True  → ダミー応答を返す（課金なし、GUI テスト用）
