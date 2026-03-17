@@ -79,8 +79,7 @@ def _get_azure_client():
         https_proxy = os.getenv("HTTPS_PROXY")
 
         # Memory guidelines state: Proxy settings prioritize HTTPS_PROXY over HTTP_PROXY
-        # HTTP_PROXY を優先し、なければ HTTPS_PROXY を使用する (Old comment left for context, but logic changed)
-        proxy_url = http_proxy or https_proxy
+        proxy_url = https_proxy or http_proxy
         if proxy_url:
             print(f"[PopAI API] INFO: プロキシ設定を適用します ")
             client_kwargs["proxy"] = proxy_url
@@ -105,12 +104,10 @@ class ApiWorker(QThread):
     config.USE_DUMMY_API に応じてダミー/本番を切り替える。
 
     シグナル:
-        chunk_received(str) – ストリーミング時の回答チャンク（断片）
         result_ready(str)   – 回答テキスト（完了時）
         error_occurred(str) – エラーメッセージ
     """
 
-    chunk_received = pyqtSignal(str)
     result_ready   = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
@@ -128,8 +125,6 @@ class ApiWorker(QThread):
                 client = DummyApiClient()
                 answer = client.generate(self._button_key, self._user_text)
 
-                # ダミーモードでも一気に1つのチャンクとして送信
-                self.chunk_received.emit(answer)
                 print(f"[PopAI API] 完了 ({len(answer)} 文字)")
                 self.result_ready.emit(answer)
 
@@ -149,19 +144,10 @@ class ApiWorker(QThread):
                 response = client.chat.completions.create(
                     model    = config.AZURE_OPENAI_DEPLOYMENT_NAME,
                     messages = messages,
-                    stream   = True,
+                    stream   = False,
                 )
 
-                answer = ""
-                for chunk in response:
-                    # ユーザーから停止命令があれば中断する等も検討できるが現状は流し切る
-                    if not chunk.choices:
-                        continue
-                    delta = chunk.choices[0].delta
-                    if delta.content is not None:
-                        text_chunk = delta.content
-                        answer += text_chunk
-                        self.chunk_received.emit(text_chunk)
+                answer = response.choices[0].message.content or ""
 
                 print(f"[PopAI API] 完了 ({len(answer)} 文字)")
                 self.result_ready.emit(answer)
