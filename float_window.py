@@ -266,33 +266,18 @@ class FloatWindow(QWidget):
             self._api_worker.quit()
 
         # ローディング表示
-        self._result_area.setPlainText("⏳ 処理中...\n\n")
+        self._result_area.setPlainText("⏳ 処理中...（数秒〜数十秒かかります）\n\n")
         self._set_buttons_enabled(False)
 
         # ワーカー起動
         self._api_worker = ApiWorker(button_key=key, user_text=text)
-        self._api_worker.chunk_received.connect(self._on_chunk_received)
         self._api_worker.result_ready.connect(self._on_result)
         self._api_worker.error_occurred.connect(self._on_error)
         self._api_worker.finished.connect(lambda: self._set_buttons_enabled(True))
         self._api_worker.start()
 
-    def _on_chunk_received(self, chunk: str):
-        # 最初に来る「⏳ 処理中...\n\n」を消すための簡易判定
-        current_text = self._result_area.toPlainText()
-        if current_text == "⏳ 処理中...\n\n":
-            self._result_area.clear()
-
-        # テキストエリアの末尾に追加する
-        self._result_area.insertPlainText(chunk)
-
-        # スクロールバーを一番下に移動する
-        scrollbar = self._result_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-
     def _on_result(self, answer: str):
-        # チャンクごとに描画しているため、完了時に全体を再設定する必要は基本ないが、
-        # 最終的な結果として整合性を保つためセットしておく
+        # 一括で結果を描画する
         self._result_area.setPlainText(answer)
 
         # スクロールバーを一番下に移動する
@@ -300,9 +285,9 @@ class FloatWindow(QWidget):
         scrollbar.setValue(scrollbar.maximum())
 
     def _on_error(self, msg: str):
-        # 最初に来る「⏳ 処理中...\n\n」を消すための簡易判定
+        # 最初に来る「⏳ 処理中...（数秒〜数十秒かかります）\n\n」を消すための簡易判定
         current_text = self._result_area.toPlainText()
-        if current_text == "⏳ 処理中...\n\n":
+        if current_text == "⏳ 処理中...（数秒〜数十秒かかります）\n\n":
             self._result_area.clear()
 
         # エラーメッセージを追記する
