@@ -7,10 +7,11 @@ float_window.py
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QTextEdit, QLabel, QSizePolicy, QFrame,
-    QApplication
+    QApplication, QSizeGrip
 )
+from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import Qt, QPoint
-from PyQt6.QtGui import QCursor, QKeySequence, QShortcut, QColor
+from PyQt6.QtGui import QCursor, QKeySequence, QShortcut, QColor, QWheelEvent, QKeyEvent
 
 from api_worker import ApiWorker
 
@@ -43,8 +44,15 @@ class FloatWindow(QWidget):
         self._api_worker: ApiWorker | None = None
         self._buttons: list[QPushButton] = []
 
+        # フォントサイズ保持用 (単位: pt)
+        self._current_font_size: int = 12
+
         self._init_ui()
         self._apply_style()
+
+        # フォントサイズ変更（Ctrl + ホイール）をテキストエリアでブロックしないよう設定
+        self._input_area.installEventFilter(self)
+        self._result_area.installEventFilter(self)
 
         shortcut = QShortcut(QKeySequence("Escape"), self)
         shortcut.activated.connect(self.close)
@@ -119,9 +127,20 @@ class FloatWindow(QWidget):
 
         root_layout.addWidget(self._container)
 
-        self.setMinimumWidth(800)
-        self.setMinimumHeight(600)
-        self.resize(800, 600)
+        # ── QSizeGrip を右下に追加 ──
+        grip_layout = QHBoxLayout()
+        grip_layout.setContentsMargins(0, 0, 0, 0)
+        grip_layout.addStretch()
+        size_grip = QSizeGrip(self)
+        size_grip.setFixedSize(16, 16)
+        grip_layout.addWidget(size_grip, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
+
+        # サイズグリップを root_layout の一部として追加
+        root_layout.addLayout(grip_layout)
+
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(300)
+        self.resize(600, 450)
 
     def _make_button(self, label: str, key: str, color: str, tip: str) -> QPushButton:
         btn = QPushButton(label)
@@ -136,98 +155,98 @@ class FloatWindow(QWidget):
     # スタイル
     # ------------------------------------------------------------------ #
     def _apply_style(self):
-        self.setStyleSheet("""
-            QWidget#container {
+        self.setStyleSheet(f"""
+            QWidget#container {{
                 background-color: rgba(22, 22, 30, 230);
                 border-radius: 14px;
                 border: 1px solid rgba(255, 255, 255, 0.10);
-            }
+            }}
 
-            QLabel#titleLabel {
+            QLabel#titleLabel {{
                 color: #E0E0E0;
                 font-size: 14px;
                 font-weight: bold;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
-            }
+            }}
 
-            QLabel#sectionLabel {
+            QLabel#sectionLabel {{
                 color: #888;
                 font-size: 11px;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
-            }
+            }}
 
-            QPushButton#closeBtn {
+            QPushButton#closeBtn {{
                 background: transparent;
                 color: #888;
                 border: none;
                 font-size: 14px;
                 border-radius: 14px;
-            }
-            QPushButton#closeBtn:hover { background: rgba(255,80,80,0.3); color:#fff; }
+            }}
+            QPushButton#closeBtn:hover {{ background: rgba(255,80,80,0.3); color:#fff; }}
 
-            QTextEdit#inputArea {
+            QTextEdit#inputArea {{
                 background-color: rgba(10, 10, 18, 180);
                 color: #C8C8C8;
                 border: 1px solid rgba(255,255,255,0.07);
                 border-radius: 8px;
                 font-family: "Consolas", "Yu Gothic UI", monospace;
-                font-size: 12pt;
+                font-size: {self._current_font_size}pt;
                 padding: 8px;
                 selection-background-color: #264F78;
-            }
+            }}
 
-            QFrame#separator {
+            QFrame#separator {{
                 color: rgba(255,255,255,0.08);
                 max-height: 1px;
                 background: rgba(255,255,255,0.08);
-            }
+            }}
 
-            QTextEdit#resultArea {
+            QTextEdit#resultArea {{
                 background-color: rgba(10, 10, 18, 200);
                 color: #D4D4D4;
                 border: 1px solid rgba(156, 39, 176, 0.3);
                 border-radius: 8px;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
-                font-size: 12pt;
+                font-size: {self._current_font_size}pt;
                 padding: 10px;
                 selection-background-color: #264F78;
-            }
+            }}
 
-            QPushButton[btnColor="#4CAF50"] {
+            QPushButton[btnColor="#4CAF50"] {{
                 background-color: #4CAF50; color:white; border:none;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
-            }
-            QPushButton[btnColor="#4CAF50"]:hover   { background-color:#66BB6A; }
-            QPushButton[btnColor="#4CAF50"]:pressed  { background-color:#388E3C; }
-            QPushButton[btnColor="#4CAF50"]:disabled { background-color:#2E5E30; color:#666; }
+            }}
+            QPushButton[btnColor="#4CAF50"]:hover   {{ background-color:#66BB6A; }}
+            QPushButton[btnColor="#4CAF50"]:pressed  {{ background-color:#388E3C; }}
+            QPushButton[btnColor="#4CAF50"]:disabled {{ background-color:#2E5E30; color:#666; }}
 
-            QPushButton[btnColor="#2196F3"] {
+            QPushButton[btnColor="#2196F3"] {{
                 background-color: #2196F3; color:white; border:none;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
-            }
-            QPushButton[btnColor="#2196F3"]:hover   { background-color:#42A5F5; }
-            QPushButton[btnColor="#2196F3"]:pressed  { background-color:#1565C0; }
-            QPushButton[btnColor="#2196F3"]:disabled { background-color:#1A3A6E; color:#666; }
+            }}
+            QPushButton[btnColor="#2196F3"]:hover   {{ background-color:#42A5F5; }}
+            QPushButton[btnColor="#2196F3"]:pressed  {{ background-color:#1565C0; }}
+            QPushButton[btnColor="#2196F3"]:disabled {{ background-color:#1A3A6E; color:#666; }}
 
-            QPushButton[btnColor="#FF9800"] {
+            QPushButton[btnColor="#FF9800"] {{
                 background-color: #FF9800; color:white; border:none;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
-            }
-            QPushButton[btnColor="#FF9800"]:hover   { background-color:#FFA726; }
-            QPushButton[btnColor="#FF9800"]:pressed  { background-color:#E65100; }
-            QPushButton[btnColor="#FF9800"]:disabled { background-color:#7A4A00; color:#666; }
+            }}
+            QPushButton[btnColor="#FF9800"]:hover   {{ background-color:#FFA726; }}
+            QPushButton[btnColor="#FF9800"]:pressed  {{ background-color:#E65100; }}
+            QPushButton[btnColor="#FF9800"]:disabled {{ background-color:#7A4A00; color:#666; }}
 
-            QPushButton[btnColor="#9C27B0"] {
+            QPushButton[btnColor="#9C27B0"] {{
                 background-color: #9C27B0; color:white; border:none;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
-            }
-            QPushButton[btnColor="#9C27B0"]:hover   { background-color:#AB47BC; }
-            QPushButton[btnColor="#9C27B0"]:pressed  { background-color:#6A1B9A; }
-            QPushButton[btnColor="#9C27B0"]:disabled { background-color:#4A1260; color:#666; }
+            }}
+            QPushButton[btnColor="#9C27B0"]:hover   {{ background-color:#AB47BC; }}
+            QPushButton[btnColor="#9C27B0"]:pressed  {{ background-color:#6A1B9A; }}
+            QPushButton[btnColor="#9C27B0"]:disabled {{ background-color:#4A1260; color:#666; }}
         """)
 
     # ------------------------------------------------------------------ #
@@ -299,9 +318,9 @@ class FloatWindow(QWidget):
 
         # エラー時は結果エリアを赤みがかった色にする（スタイルを一時変更）
         self._result_area.setStyleSheet(
-            "QTextEdit { color: #FF6B6B; background-color: rgba(80,10,10,200); "
-            "border: 1px solid rgba(255,80,80,0.4); border-radius:8px; "
-            "font-family:'Segoe UI','Yu Gothic UI',sans-serif; font-size:12pt; padding:10px; }"
+            f"QTextEdit {{ color: #FF6B6B; background-color: rgba(80,10,10,200); "
+            f"border: 1px solid rgba(255,80,80,0.4); border-radius:8px; "
+            f"font-family:'Segoe UI','Yu Gothic UI',sans-serif; font-size:{self._current_font_size}pt; padding:10px; }}"
         )
 
     def _set_buttons_enabled(self, enabled: bool):
@@ -313,8 +332,41 @@ class FloatWindow(QWidget):
             self._apply_style()
 
     # ------------------------------------------------------------------ #
-    # ドラッグ移動
+    # イベントオーバーライド (ドラッグ移動 / フォントサイズ変更)
     # ------------------------------------------------------------------ #
+    def eventFilter(self, obj, event):
+        # QTextEdit 上の Ctrl+ホイールイベントをキャッチして処理
+        if event.type() == event.Type.Wheel and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.wheelEvent(event)
+            return True
+        return super().eventFilter(obj, event)
+
+    def wheelEvent(self, event: QWheelEvent):
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self._current_font_size = min(32, self._current_font_size + 1)
+            elif delta < 0:
+                self._current_font_size = max(8, self._current_font_size - 1)
+            self._apply_style()
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            if event.key() == Qt.Key.Key_Plus or event.key() == Qt.Key.Key_Equal:
+                self._current_font_size = min(32, self._current_font_size + 1)
+                self._apply_style()
+                event.accept()
+                return
+            elif event.key() == Qt.Key.Key_Minus:
+                self._current_font_size = max(8, self._current_font_size - 1)
+                self._apply_style()
+                event.accept()
+                return
+        super().keyPressEvent(event)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
@@ -328,3 +380,8 @@ class FloatWindow(QWidget):
 
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
+
+    def closeEvent(self, event: QCloseEvent):
+        # 閉じる（×）ボタンなどが押された際、破棄せず非表示にする
+        event.ignore()
+        self.hide()
