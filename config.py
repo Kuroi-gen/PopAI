@@ -50,6 +50,10 @@ AZURE_OPENAI_API_VERSION = os.getenv(
     "2024-02-01"
 )
 
+# ── プロキシの優先順位設定 ───────────────────────────────────────────
+# "https" または "http" を指定します。デフォルトは "https" です。
+PROXY_PREFERENCE = os.getenv("PROXY_PREFERENCE", "https").lower()
+
 # ── SSL証明書検証の無効化（社内プロキシ等用） ──────────────────────────
 # True にすると、Azure OpenAI 通信時に SSL 証明書の検証を行いません。
 _disable_ssl = os.getenv("DISABLE_SSL_VERIFY", "False").lower()

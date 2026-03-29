@@ -261,25 +261,25 @@ class HotkeyThread(QThread):
             self._keys_released.set()
 
     def _fetch_clipboard(self):
-        # 全キーが解放されるまで待つ（最大 2 秒）
-        self._keys_released.wait(timeout=2.0)
-        time.sleep(0.1)
+        # 全キーが解放されるまで待つ（最大 0.5 秒に変更してレスポンス向上）
+        self._keys_released.wait(timeout=0.5)
 
         # ホットキーの残留キーをソフト解放
         release_hotkey_keys()
-        time.sleep(0.1)
 
         # 前のウィンドウへフォーカスを戻す
         if self._prev_hwnd:
             _user32.SetForegroundWindow(self._prev_hwnd)
-            time.sleep(0.15)
+            time.sleep(0.05)
 
         # Ctrl+C 送信
         send_ctrl_c()
-        time.sleep(0.5)   # コピー完了を待つ
+        time.sleep(0.1)   # コピー完了を待つ
 
         text = get_clipboard_text()
-        print(f"[PopAI] 取得テキスト ({len(text)} 文字): {text[:60]!r}")
+
+        # 不要なログは出さず、メタデータのみ出力 (メモリのガイドラインに従う)
+        print(f"[PopAI] 取得テキスト ({len(text)} 文字)")
         self.clipboard_ready.emit(text)
 
     def run(self):

@@ -78,10 +78,15 @@ def _get_azure_client():
         http_proxy = os.getenv("HTTP_PROXY")
         https_proxy = os.getenv("HTTPS_PROXY")
 
-        # Memory guidelines state: Proxy settings prioritize HTTPS_PROXY over HTTP_PROXY
-        proxy_url = https_proxy or http_proxy
+        # config.PROXY_PREFERENCE に基づいてプロキシ設定を優先決定する
+        pref = getattr(config, "PROXY_PREFERENCE", "https")
+        if pref == "http":
+            proxy_url = http_proxy or https_proxy
+        else:
+            proxy_url = https_proxy or http_proxy
+
         if proxy_url:
-            print(f"[PopAI API] INFO: プロキシ設定を適用します ")
+            print(f"[PopAI API] INFO: プロキシ設定を適用します (Priority: {pref})")
             client_kwargs["proxy"] = proxy_url
 
         http_client = httpx.Client(**client_kwargs)
