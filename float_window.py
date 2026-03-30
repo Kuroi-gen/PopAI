@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QApplication, QSizeGrip
 )
 from PyQt6.QtGui import QCloseEvent
-from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtCore import Qt, QPoint, QSettings, QSize
 from PyQt6.QtGui import QCursor, QKeySequence, QShortcut, QColor, QWheelEvent, QKeyEvent
 
 from api_worker import ApiWorker
@@ -128,19 +128,26 @@ class FloatWindow(QWidget):
         root_layout.addWidget(self._container)
 
         # ── QSizeGrip を右下に追加 ──
-        grip_layout = QHBoxLayout()
-        grip_layout.setContentsMargins(0, 0, 0, 0)
-        grip_layout.addStretch()
-        size_grip = QSizeGrip(self)
-        size_grip.setFixedSize(16, 16)
-        grip_layout.addWidget(size_grip, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
+        # QSizeGripを確実に機能させ、背面に隠れないように_containerのレイアウトではなく、
+        # _containerに直接重ねるような配置にします。（QSizeGripの親をselfにして、resizeEventで右下に配置）
 
-        # サイズグリップを root_layout の一部として追加
-        root_layout.addLayout(grip_layout)
+        # QSizeGrip を作成（親を self に設定）
+        self.size_grip = QSizeGrip(self)
+        self.size_grip.setFixedSize(16, 16)
+
+        # 背景と重なって見えなくなるのを防ぐため、少し色をつけます
+        self.size_grip.setStyleSheet("QSizeGrip { background-color: rgba(255, 255, 255, 0.3); border-radius: 4px; }")
 
         self.setMinimumWidth(400)
         self.setMinimumHeight(300)
-        self.resize(600, 450)
+
+        # ── 前回サイズの復元 ──
+        settings = QSettings("PopAI_Company", "PopAI_App")
+        saved_size = settings.value("window_size", QSize(600, 450))
+        if isinstance(saved_size, QSize):
+            self.resize(saved_size)
+        else:
+            self.resize(600, 450)
 
     def _make_button(self, label: str, key: str, color: str, tip: str) -> QPushButton:
         btn = QPushButton(label)
@@ -261,7 +268,8 @@ class FloatWindow(QWidget):
         screen = QApplication.primaryScreen().geometry()
         cursor_pos = QCursor.pos()
 
-        self.adjustSize()
+        # ウィンドウサイズは前回の状態（または手動リサイズ後）を維持するため、
+        # ここでの adjustSize() は呼ばない。
         w, h = self.width(), self.height()
         x = max(screen.left(), min(cursor_pos.x() - w // 2, screen.right()  - w))
         y = max(screen.top(),  min(cursor_pos.y() - h // 2, screen.bottom() - h))
@@ -334,6 +342,12 @@ class FloatWindow(QWidget):
     # ------------------------------------------------------------------ #
     # イベントオーバーライド (ドラッグ移動 / フォントサイズ変更)
     # ------------------------------------------------------------------ #
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # QSizeGrip を常に右下に配置する
+        self.size_grip.move(self.width() - self.size_grip.width(), self.height() - self.size_grip.height())
+        self.size_grip.raise_()
+
     def eventFilter(self, obj, event):
         # QTextEdit 上の Ctrl+ホイールイベントをキャッチして処理
         if event.type() == event.Type.Wheel and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -380,6 +394,12 @@ class FloatWindow(QWidget):
 
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
+
+    def hideEvent(self, event):
+        # 非表示になる際にサイズを保存する
+        settings = QSettings("PopAI_Company", "PopAI_App")
+        settings.setValue("window_size", self.size())
+        super().hideEvent(event)
 
     def closeEvent(self, event: QCloseEvent):
         # 閉じる（×）ボタンなどが押された際、破棄せず非表示にする
