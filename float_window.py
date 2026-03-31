@@ -4,6 +4,7 @@ float_window.py
 最前面・フレームレスで画面中央（またはマウス位置付近）に表示される。
 """
 
+import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QTextEdit, QLabel, QSizePolicy, QFrame,
@@ -56,6 +57,52 @@ class FloatWindow(QWidget):
 
         shortcut = QShortcut(QKeySequence("Escape"), self)
         shortcut.activated.connect(self.close)
+
+    def _get_settings(self) -> QSettings:
+        # プロジェクトフォルダ内の settings.ini を指定
+        settings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.ini")
+        return QSettings(settings_path, QSettings.Format.IniFormat)
+
+    def _save_settings(self):
+        settings = self._get_settings()
+        settings.setValue("window/size", self.size())
+        settings.setValue("window/pos", self.pos())
+        settings.sync()
+
+    def _center_on_primary_screen(self):
+        screen = QApplication.primaryScreen().geometry()
+        x = screen.left() + (screen.width() - self.width()) // 2
+        y = screen.top() + (screen.height() - self.height()) // 2
+        self.move(x, y)
+
+    def _ensure_visible(self):
+        """
+        ウィンドウの中心点が現在有効なディスプレイのいずれかに含まれているか確認し、
+        含まれていなければプライマリスクリーンの中央にリセットする。
+        """
+        center_point = self.geometry().center()
+        is_visible = False
+        for screen in QApplication.screens():
+            if screen.geometry().contains(center_point):
+                is_visible = True
+                break
+
+        if not is_visible:
+            self._center_on_primary_screen()
+
+    def _load_settings_and_apply(self):
+        settings = self._get_settings()
+        saved_size = settings.value("window/size")
+        saved_pos = settings.value("window/pos")
+
+        if saved_size is not None and saved_pos is not None:
+            self.resize(saved_size)
+            self.move(saved_pos)
+            self._ensure_visible()
+        else:
+            # 初回起動時等のフォールバック
+            self.resize(600, 450)
+            self._center_on_primary_screen()
 
     # ------------------------------------------------------------------ #
     # UI 構築
@@ -141,13 +188,11 @@ class FloatWindow(QWidget):
         self.setMinimumWidth(400)
         self.setMinimumHeight(300)
 
-        # ── 前回サイズの復元 ──
-        settings = QSettings("PopAI_Company", "PopAI_App")
-        saved_size = settings.value("window_size", QSize(600, 450))
-        if isinstance(saved_size, QSize):
-            self.resize(saved_size)
-        else:
-            self.resize(600, 450)
+        # ── 前回サイズ・位置の復元 ──
+        self._load_settings_and_apply()
+
+        # ── アプリ終了時にも保存する ──
+        QApplication.instance().aboutToQuit.connect(self._save_settings)
 
     def _make_button(self, label: str, key: str, color: str, tip: str) -> QPushButton:
         btn = QPushButton(label)
@@ -265,16 +310,13 @@ class FloatWindow(QWidget):
         self._result_area.clear()
         self._set_buttons_enabled(True)
 
-        screen = QApplication.primaryScreen().geometry()
-        cursor_pos = QCursor.pos()
+        if self.isHidden():
+            # 非表示状態から復帰する際は設定を読み込んで適用
+            self._load_settings_and_apply()
+        else:
+            # すでに表示されている場合でも、画面外に移動していないか確認
+            self._ensure_visible()
 
-        # ウィンドウサイズは前回の状態（または手動リサイズ後）を維持するため、
-        # ここでの adjustSize() は呼ばない。
-        w, h = self.width(), self.height()
-        x = max(screen.left(), min(cursor_pos.x() - w // 2, screen.right()  - w))
-        y = max(screen.top(),  min(cursor_pos.y() - h // 2, screen.bottom() - h))
-
-        self.move(x, y)
         self.show()
         self.raise_()
         self.activateWindow()
@@ -396,9 +438,8 @@ class FloatWindow(QWidget):
         super().focusOutEvent(event)
 
     def hideEvent(self, event):
-        # 非表示になる際にサイズを保存する
-        settings = QSettings("PopAI_Company", "PopAI_App")
-        settings.setValue("window_size", self.size())
+        # 非表示になる際にサイズと位置を保存する
+        self._save_settings()
         super().hideEvent(event)
 
     def closeEvent(self, event: QCloseEvent):
