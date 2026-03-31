@@ -37,8 +37,18 @@ class DummyApiClient:
     ダミーテキストを返す。
     """
 
-    def generate(self, button_key: str, user_text: str) -> str:
+    def generate(self, button_key: str, messages: list[dict[str, str]]) -> str:
         label = BUTTON_LABELS.get(button_key, button_key)
+
+        # 履歴から最新のユーザー入力とメッセージ数を取得
+        user_text = ""
+        msg_count = 0
+        for msg in messages:
+            if msg.get("role") != "system":
+                msg_count += 1
+                if msg.get("role") == "user":
+                    user_text = msg.get("content", "")
+
         char_count = len(user_text)
 
         # 通信遅延のシミュレート（2秒）
@@ -46,6 +56,7 @@ class DummyApiClient:
 
         dummy_response = (
             f"[{label}] のダミー回答です。\n\n"
+            f"現在の履歴メッセージ数（システムプロンプト除く）: {msg_count}\n\n"
             f"受け取ったテキストの文字数: {char_count} 文字\n\n"
             f"--- 受け取ったテキスト（先頭100文字）---\n"
             f"{user_text[:100]}{'...' if char_count > 100 else ''}\n\n"
@@ -116,19 +127,24 @@ class ApiWorker(QThread):
     result_ready   = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, button_key: str, user_text: str, parent=None):
+    def __init__(self, button_key: str, messages: list[dict[str, str]], parent=None):
         super().__init__(parent)
         self._button_key = button_key
-        self._user_text  = user_text
+        self._messages   = messages
 
     def run(self):
         try:
+            # 最新のユーザーテキストの文字数を取得（ログ用）
+            user_text_len = 0
+            if self._messages and self._messages[-1].get("role") == "user":
+                user_text_len = len(self._messages[-1].get("content", ""))
+
             if config.USE_DUMMY_API:
                 # ── ダミーモード ──────────────────────────────────────
                 print(f"[PopAI API] ダミーモード key={self._button_key}, "
-                      f"chars={len(self._user_text)}")
+                      f"chars={user_text_len}")
                 client = DummyApiClient()
-                answer = client.generate(self._button_key, self._user_text)
+                answer = client.generate(self._button_key, self._messages)
 
                 print(f"[PopAI API] 完了 ({len(answer)} 文字)")
                 self.result_ready.emit(answer)
@@ -136,19 +152,15 @@ class ApiWorker(QThread):
             else:
                 # ── 本番モード（Azure OpenAI） ────────────────────────
                 client = _get_azure_client()
-                system_prompt = SYSTEM_PROMPTS.get(self._button_key, "")
-                messages = []
-                if system_prompt:
-                    messages.append({"role": "system", "content": system_prompt})
-                messages.append({"role": "user", "content": self._user_text})
 
                 print(f"[PopAI API] リクエスト送信 key={self._button_key}, "
                       f"deployment={config.AZURE_OPENAI_DEPLOYMENT_NAME}, "
-                      f"chars={len(self._user_text)}")
+                      f"chars={user_text_len}, "
+                      f"total_messages={len(self._messages)}")
 
                 response = client.chat.completions.create(
                     model    = config.AZURE_OPENAI_DEPLOYMENT_NAME,
-                    messages = messages,
+                    messages = self._messages,
                     stream   = False,
                 )
 

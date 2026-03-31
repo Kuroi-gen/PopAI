@@ -14,7 +14,7 @@ from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import Qt, QPoint, QSettings, QSize
 from PyQt6.QtGui import QCursor, QKeySequence, QShortcut, QColor, QWheelEvent, QKeyEvent
 
-from api_worker import ApiWorker
+from api_worker import ApiWorker, SYSTEM_PROMPTS
 
 
 class FloatWindow(QWidget):
@@ -45,6 +45,9 @@ class FloatWindow(QWidget):
         self._api_worker: ApiWorker | None = None
         self._buttons: list[QPushButton] = []
 
+        # 会話履歴を保持するリスト
+        self._chat_history: list[dict[str, str]] = []
+
         # フォントサイズ保持用 (単位: pt)
         self._current_font_size: int = 12
 
@@ -57,6 +60,10 @@ class FloatWindow(QWidget):
 
         shortcut = QShortcut(QKeySequence("Escape"), self)
         shortcut.activated.connect(self.close)
+
+        # 履歴クリアのショートカット (Ctrl + L)
+        clear_shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
+        clear_shortcut.activated.connect(self._on_clear_clicked)
 
     def _get_settings(self) -> QSettings:
         # プロジェクトフォルダ内の settings.ini を指定
@@ -151,6 +158,17 @@ class FloatWindow(QWidget):
             btn = self._make_button(label, key, color, tip)
             btn_layout.addWidget(btn)
             self._buttons.append(btn)
+
+        # クリアボタンを追加
+        clear_btn = QPushButton("🗑️")
+        clear_btn.setToolTip("会話履歴をクリアします (Ctrl+L)")
+        clear_btn.setFixedHeight(36)
+        clear_btn.setFixedWidth(40)
+        clear_btn.setObjectName("btnClear")
+        clear_btn.clicked.connect(self._on_clear_clicked)
+        btn_layout.addWidget(clear_btn)
+        self._clear_btn = clear_btn
+
         layout.addLayout(btn_layout)
 
         # ── セパレータ ──
@@ -299,6 +317,26 @@ class FloatWindow(QWidget):
             QPushButton[btnColor="#9C27B0"]:hover   {{ background-color:#AB47BC; }}
             QPushButton[btnColor="#9C27B0"]:pressed  {{ background-color:#6A1B9A; }}
             QPushButton[btnColor="#9C27B0"]:disabled {{ background-color:#4A1260; color:#666; }}
+
+            QPushButton#btnClear {{
+                background-color: transparent;
+                color: #888;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 8px;
+                font-size: 14pt;
+            }}
+            QPushButton#btnClear:hover {{
+                background-color: rgba(255, 80, 80, 0.2);
+                border-color: rgba(255, 80, 80, 0.5);
+                color: white;
+            }}
+            QPushButton#btnClear:pressed {{
+                background-color: rgba(255, 80, 80, 0.4);
+            }}
+            QPushButton#btnClear:disabled {{
+                background-color: rgba(255, 255, 255, 0.05);
+                color: #666;
+            }}
         """)
 
     # ------------------------------------------------------------------ #
@@ -307,6 +345,10 @@ class FloatWindow(QWidget):
     def show_with_text(self, text: str):
         """テキストをセットしてウィンドウを表示する。"""
         self._input_area.setPlainText(text)
+
+        # 履歴をクリアして新しいテキストでの開始に備える
+        self._chat_history.clear()
+
         self._result_area.clear()
         self._set_buttons_enabled(True)
 
@@ -324,11 +366,37 @@ class FloatWindow(QWidget):
     # ------------------------------------------------------------------ #
     # ボタンアクション
     # ------------------------------------------------------------------ #
+    def _on_clear_clicked(self):
+        # 履歴をクリア
+        self._chat_history.clear()
+
+        # UIをリセット（テキストエリア下段のみ）
+        self._result_area.setPlainText("🧹 会話履歴をクリアしました")
+
     def _on_button_clicked(self, key: str):
         text = self._input_area.toPlainText().strip()
         if not text:
             self._result_area.setPlainText("⚠️ テキストが入力されていません。")
             return
+
+        # システムプロンプトの管理
+        # 常に最新のボタンのシステムプロンプトで先頭を上書き（差し替え）する
+        system_prompt = SYSTEM_PROMPTS.get(key, "")
+
+        # 履歴が空、または最初の要素がシステムプロンプトでない場合は新しく追加
+        if not self._chat_history or self._chat_history[0].get("role") != "system":
+            if system_prompt:
+                self._chat_history.insert(0, {"role": "system", "content": system_prompt})
+        else:
+            # 最初の要素がシステムプロンプトの場合
+            if system_prompt:
+                self._chat_history[0] = {"role": "system", "content": system_prompt}
+            else:
+                # system_promptが空（チャットボタンなど）の場合は削除
+                self._chat_history.pop(0)
+
+        # ユーザー入力を履歴に追加
+        self._chat_history.append({"role": "user", "content": text})
 
         # 前回のワーカーが残っている場合は終了を待たずに破棄
         if self._api_worker and self._api_worker.isRunning():
@@ -339,13 +407,16 @@ class FloatWindow(QWidget):
         self._set_buttons_enabled(False)
 
         # ワーカー起動
-        self._api_worker = ApiWorker(button_key=key, user_text=text)
+        self._api_worker = ApiWorker(button_key=key, messages=self._chat_history)
         self._api_worker.result_ready.connect(self._on_result)
         self._api_worker.error_occurred.connect(self._on_error)
         self._api_worker.finished.connect(lambda: self._set_buttons_enabled(True))
         self._api_worker.start()
 
     def _on_result(self, answer: str):
+        # AIの回答を履歴に追加
+        self._chat_history.append({"role": "assistant", "content": answer})
+
         # 一括で結果を描画する
         self._result_area.setPlainText(answer)
 
@@ -354,6 +425,10 @@ class FloatWindow(QWidget):
         scrollbar.setValue(scrollbar.maximum())
 
     def _on_error(self, msg: str):
+        # エラー時は直前に追加したユーザー入力を取り消す
+        if self._chat_history and self._chat_history[-1].get("role") == "user":
+            self._chat_history.pop()
+
         # 最初に来る「⏳ 処理中...（数秒〜数十秒かかります）\n\n」を消すための簡易判定
         current_text = self._result_area.toPlainText()
         if current_text == "⏳ 処理中...（数秒〜数十秒かかります）\n\n":
@@ -376,6 +451,9 @@ class FloatWindow(QWidget):
     def _set_buttons_enabled(self, enabled: bool):
         for btn in self._buttons:
             btn.setEnabled(enabled)
+        if hasattr(self, '_clear_btn'):
+            self._clear_btn.setEnabled(enabled)
+
         if enabled:
             # エラー色をリセット
             self._result_area.setStyleSheet("")

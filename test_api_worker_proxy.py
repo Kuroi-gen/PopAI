@@ -37,7 +37,7 @@ class TestApiWorkerProxy(unittest.TestCase):
     @patch('httpx.Client')
     @patch('openai.AzureOpenAI')
     def test_proxy_kwargs_with_http(self, mock_azure, mock_httpx_client):
-        worker = ApiWorker(button_key="C", user_text="Hello")
+        worker = ApiWorker(button_key="C", messages=[{"role": "user", "content": "Hello"}])
 
         with patch.dict(os.environ, {"HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
             import api_worker
@@ -48,7 +48,7 @@ class TestApiWorkerProxy(unittest.TestCase):
     @patch('httpx.Client')
     @patch('openai.AzureOpenAI')
     def test_proxy_kwargs_with_https(self, mock_azure, mock_httpx_client):
-        worker = ApiWorker(button_key="C", user_text="Hello")
+        worker = ApiWorker(button_key="C", messages=[{"role": "user", "content": "Hello"}])
 
         with patch.dict(os.environ, {"HTTPS_PROXY": "https://my.secure.proxy:8443", "HTTP_PROXY": "http://my.proxy:8080"}, clear=True):
             import api_worker
@@ -59,7 +59,7 @@ class TestApiWorkerProxy(unittest.TestCase):
     @patch('httpx.Client')
     @patch('openai.AzureOpenAI')
     def test_proxy_kwargs_no_proxy(self, mock_azure, mock_httpx_client):
-        worker = ApiWorker(button_key="C", user_text="Hello")
+        worker = ApiWorker(button_key="C", messages=[{"role": "user", "content": "Hello"}])
 
         with patch.dict(os.environ, {}, clear=True):
             import api_worker
@@ -70,7 +70,7 @@ class TestApiWorkerProxy(unittest.TestCase):
     @patch('httpx.Client')
     @patch('openai.AzureOpenAI')
     def test_proxy_kwargs_with_disable_ssl(self, mock_azure, mock_httpx_client):
-        worker = ApiWorker(button_key="C", user_text="Hello")
+        worker = ApiWorker(button_key="C", messages=[{"role": "user", "content": "Hello"}])
 
         # 実行時に config.DISABLE_SSL_VERIFY = True になるように一時的に変更
         orig_val = getattr(config, "DISABLE_SSL_VERIFY", False)
