@@ -48,9 +48,10 @@ def _parse_global_shortcut():
                 modifiers.update([pynput_kb.Key.shift_l, pynput_kb.Key.shift_r])
         else:
             # それ以外は通常の文字キーとみなす (例: 'c', '1')
+            # from_char を使うと KeyCode.from_char('q') となるが、
+            # pynput が on_press で渡してくる文字キーと確実に一致するようにする
             key = pynput_kb.KeyCode.from_char(part)
             normalized.add(key)
-            modifiers.add(key)
 
     return frozenset(normalized), frozenset(modifiers), shortcut_str
 
@@ -225,12 +226,23 @@ class HotkeyThread(QThread):
         }
         return mapping.get(key, key)
 
-    def _on_press(self, key):
-        # pynput が渡してくる key が文字の場合、文字コードの違い（大文字/小文字）などを吸収する
+    def _get_normalized_key(self, key):
+        """pynput のキー入力から、正規化されたキーオブジェクトを取得する"""
+        # Ctrlが押された際の文字キーは char が制御文字（\x01 など）になるため、
+        # vk（仮想キーコード）を優先してアルファベット・数字を判定する
+        if hasattr(key, 'vk') and key.vk is not None:
+            vk = key.vk
+            # A-Z (65-90) または 0-9 (48-57) の場合は vk から文字化
+            if (65 <= vk <= 90) or (48 <= vk <= 57):
+                return pynput_kb.KeyCode.from_char(chr(vk).lower())
+
         if hasattr(key, 'char') and key.char is not None:
-            normalized = pynput_kb.KeyCode.from_char(key.char.lower())
-        else:
-            normalized = self._normalize(key)
+            return pynput_kb.KeyCode.from_char(key.char.lower())
+
+        return self._normalize(key)
+
+    def _on_press(self, key):
+        normalized = self._get_normalized_key(key)
 
         if normalized in (pynput_kb.Key.ctrl, pynput_kb.Key.alt, pynput_kb.Key.shift):
             hwnd = _user32.GetForegroundWindow()
@@ -247,10 +259,7 @@ class HotkeyThread(QThread):
             threading.Thread(target=self._fetch_clipboard, daemon=True).start()
 
     def _on_release(self, key):
-        if hasattr(key, 'char') and key.char is not None:
-            normalized = pynput_kb.KeyCode.from_char(key.char.lower())
-        else:
-            normalized = self._normalize(key)
+        normalized = self._get_normalized_key(key)
 
         self._current_keys.discard(normalized)
 
