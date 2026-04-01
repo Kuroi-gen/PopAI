@@ -177,8 +177,26 @@ class FloatWindow(QWidget):
         sep.setFrameShape(QFrame.Shape.HLine)
         layout.addWidget(sep)
 
+        # ── 履歴トグルボタン ──
+        self._history_toggle_btn = QPushButton("▼ 過去の会話履歴を表示（ここをクリック）")
+        self._history_toggle_btn.setObjectName("historyToggleBtn")
+        self._history_toggle_btn.setEnabled(False)
+        self._history_toggle_btn.setCheckable(True)
+        self._history_toggle_btn.clicked.connect(self._on_toggle_history_clicked)
+        layout.addWidget(self._history_toggle_btn)
+
+        # ── 履歴展開エリア (初期は非表示) ──
+        self._history_area = QTextEdit()
+        self._history_area.setObjectName("historyArea")
+        self._history_area.setReadOnly(True)
+        self._history_area.hide()
+        # 高さをある程度制限するかExpandingにするか。
+        # _result_areaと同等の扱いにするためExpandingで。
+        self._history_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self._history_area)
+
         # ── AI 回答エリア ──
-        result_label = QLabel("🤖 AI の回答")
+        result_label = QLabel("🤖 最新のAIの回答")
         result_label.setObjectName("sectionLabel")
         layout.addWidget(result_label)
 
@@ -220,6 +238,17 @@ class FloatWindow(QWidget):
         btn.setProperty("btnColor", color)
         btn.clicked.connect(lambda _, k=key: self._on_button_clicked(k))
         return btn
+
+    def _on_toggle_history_clicked(self, checked: bool):
+        if checked:
+            self._history_toggle_btn.setText("▲ 会話履歴を非表示")
+            self._history_area.show()
+            # 展開されたら一番下までスクロールしておく
+            scrollbar = self._history_area.verticalScrollBar()
+            scrollbar.setValue(scrollbar.maximum())
+        else:
+            self._history_toggle_btn.setText("▼ 過去の会話履歴を表示（ここをクリック）")
+            self._history_area.hide()
 
     # ------------------------------------------------------------------ #
     # スタイル
@@ -269,6 +298,35 @@ class FloatWindow(QWidget):
                 color: rgba(255,255,255,0.08);
                 max-height: 1px;
                 background: rgba(255,255,255,0.08);
+            }}
+
+            QPushButton#historyToggleBtn {{
+                background-color: transparent;
+                color: #AAAAAA;
+                border: none;
+                font-size: 12px;
+                font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+                text-align: left;
+                padding: 4px;
+            }}
+            QPushButton#historyToggleBtn:hover {{
+                color: #FFFFFF;
+                background-color: rgba(255, 255, 255, 0.05);
+                border-radius: 4px;
+            }}
+            QPushButton#historyToggleBtn:disabled {{
+                color: #555555;
+            }}
+
+            QTextEdit#historyArea {{
+                background-color: rgba(15, 15, 25, 180);
+                color: #CCCCCC;
+                border: 1px solid rgba(255,255,255,0.05);
+                border-radius: 8px;
+                font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+                font-size: {self._current_font_size - 1}pt;
+                padding: 10px;
+                selection-background-color: #264F78;
             }}
 
             QTextEdit#resultArea {{
@@ -350,6 +408,10 @@ class FloatWindow(QWidget):
         self._chat_history.clear()
 
         self._result_area.clear()
+        self._history_area.clear()
+        self._history_toggle_btn.setEnabled(False)
+        self._history_toggle_btn.setChecked(False)
+        self._on_toggle_history_clicked(False)
         self._set_buttons_enabled(True)
 
         if self.isHidden():
@@ -372,6 +434,12 @@ class FloatWindow(QWidget):
 
         # UIをリセット（テキストエリア下段のみ）
         self._result_area.setPlainText("🧹 会話履歴をクリアしました")
+        self._history_area.clear()
+
+        # トグルボタンを無効化して非表示状態に戻す
+        self._history_toggle_btn.setEnabled(False)
+        self._history_toggle_btn.setChecked(False)
+        self._on_toggle_history_clicked(False)
 
     def _on_button_clicked(self, key: str):
         text = self._input_area.toPlainText().strip()
@@ -420,9 +488,32 @@ class FloatWindow(QWidget):
         # 一括で結果を描画する
         self._result_area.setPlainText(answer)
 
+        # 履歴展開エリアを更新する
+        history_text = ""
+        for msg in self._chat_history:
+            role = msg.get("role")
+            content = msg.get("content", "")
+            if role == "system":
+                continue
+            elif role == "user":
+                history_text += f"👤 あなた:\n{content}\n\n"
+            elif role == "assistant":
+                history_text += f"🤖 AI:\n{content}\n\n"
+                history_text += "-" * 40 + "\n\n"
+
+        self._history_area.setPlainText(history_text.strip())
+
+        # もし展開されていれば、一番下までスクロール
+        if self._history_toggle_btn.isChecked():
+            h_scrollbar = self._history_area.verticalScrollBar()
+            h_scrollbar.setValue(h_scrollbar.maximum())
+
         # スクロールバーを一番下に移動する
         scrollbar = self._result_area.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
+
+        # トグルボタンを有効化
+        self._history_toggle_btn.setEnabled(True)
 
     def _on_error(self, msg: str):
         # エラー時は直前に追加したユーザー入力を取り消す
