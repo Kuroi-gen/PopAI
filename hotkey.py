@@ -48,9 +48,10 @@ def _parse_global_shortcut():
                 modifiers.update([pynput_kb.Key.shift_l, pynput_kb.Key.shift_r])
         else:
             # それ以外は通常の文字キーとみなす (例: 'c', '1')
+            # from_char を使うと KeyCode.from_char('q') となるが、
+            # pynput が on_press で渡してくる文字キーと確実に一致するようにする
             key = pynput_kb.KeyCode.from_char(part)
             normalized.add(key)
-            modifiers.add(key)
 
     return frozenset(normalized), frozenset(modifiers), shortcut_str
 
@@ -229,6 +230,9 @@ class HotkeyThread(QThread):
         # pynput が渡してくる key が文字の場合、文字コードの違い（大文字/小文字）などを吸収する
         if hasattr(key, 'char') and key.char is not None:
             normalized = pynput_kb.KeyCode.from_char(key.char.lower())
+        elif hasattr(key, 'vk') and key.vk is not None and 65 <= key.vk <= 90:
+            # Shift+文字キーなどで vk のみ取得できる場合 (A-Z) の小文字化
+            normalized = pynput_kb.KeyCode.from_char(chr(key.vk).lower())
         else:
             normalized = self._normalize(key)
 
@@ -249,6 +253,8 @@ class HotkeyThread(QThread):
     def _on_release(self, key):
         if hasattr(key, 'char') and key.char is not None:
             normalized = pynput_kb.KeyCode.from_char(key.char.lower())
+        elif hasattr(key, 'vk') and key.vk is not None and 65 <= key.vk <= 90:
+            normalized = pynput_kb.KeyCode.from_char(chr(key.vk).lower())
         else:
             normalized = self._normalize(key)
 
