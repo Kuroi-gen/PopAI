@@ -25,10 +25,10 @@ class FloatWindow(QWidget):
     """
 
     BUTTONS = [
-        ("要約(&S)", "S", "#4CAF50", "選択テキストを要約します (Alt+S)"),
-        ("質問(&Q)", "Q", "#2196F3", "選択テキストについて質問します (Alt+Q)"),
-        ("添削(&T)", "T", "#FF9800", "選択テキストを添削します (Alt+T)"),
-        ("チャット(&C)", "C", "#9C27B0", "チャットを開始します (Alt+C)"),
+        ("要約(&S)", "S", "summary", "選択テキストを要約します (Alt+S)"),
+        ("質問(&Q)", "Q", "question", "選択テキストについて質問します (Alt+Q)"),
+        ("添削(&T)", "T", "correction", "選択テキストを添削します (Alt+T)"),
+        ("チャット(&C)", "C", "chat", "チャットを開始します (Alt+C)"),
     ]
 
     def __init__(self, parent=None):
@@ -230,12 +230,12 @@ class FloatWindow(QWidget):
         # ── アプリ終了時にも保存する ──
         QApplication.instance().aboutToQuit.connect(self._save_settings)
 
-    def _make_button(self, label: str, key: str, color: str, tip: str) -> QPushButton:
+    def _make_button(self, label: str, key: str, btn_type: str, tip: str) -> QPushButton:
         btn = QPushButton(label)
         btn.setToolTip(tip)
         btn.setFixedHeight(36)
         btn.setObjectName(f"btn_{key}")
-        btn.setProperty("btnColor", color)
+        btn.setProperty("btnType", btn_type)
         btn.clicked.connect(lambda _, k=key: self._on_button_clicked(k))
         return btn
 
@@ -256,13 +256,13 @@ class FloatWindow(QWidget):
     def _apply_style(self):
         self.setStyleSheet(f"""
             QWidget#container {{
-                background-color: rgba(22, 22, 30, 230);
+                background-color: rgba(45, 45, 45, 230);
                 border-radius: 14px;
                 border: 1px solid rgba(255, 255, 255, 0.10);
             }}
 
             QLabel#titleLabel {{
-                color: #E0E0E0;
+                color: #D4D4D4;
                 font-size: 14px;
                 font-weight: bold;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
@@ -276,16 +276,17 @@ class FloatWindow(QWidget):
 
             QPushButton#closeBtn {{
                 background: transparent;
-                color: #888;
+                color: #D4D4D4;
                 border: none;
-                font-size: 14px;
+                font-size: 16px;
+                font-family: "Segoe UI Symbol", "Inter", "Ubuntu", sans-serif;
                 border-radius: 14px;
             }}
             QPushButton#closeBtn:hover {{ background: rgba(255,80,80,0.3); color:#fff; }}
 
             QTextEdit#inputArea {{
-                background-color: rgba(10, 10, 18, 180);
-                color: #C8C8C8;
+                background-color: rgba(45, 45, 45, 180);
+                color: #D4D4D4;
                 border: 1px solid rgba(255,255,255,0.07);
                 border-radius: 8px;
                 font-family: "Consolas", "Yu Gothic UI", monospace;
@@ -302,7 +303,7 @@ class FloatWindow(QWidget):
 
             QPushButton#historyToggleBtn {{
                 background-color: transparent;
-                color: #AAAAAA;
+                color: #D4D4D4;
                 border: none;
                 font-size: 12px;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
@@ -319,8 +320,8 @@ class FloatWindow(QWidget):
             }}
 
             QTextEdit#historyArea {{
-                background-color: rgba(15, 15, 25, 180);
-                color: #CCCCCC;
+                background-color: rgba(45, 45, 45, 180);
+                color: #D4D4D4;
                 border: 1px solid rgba(255,255,255,0.05);
                 border-radius: 8px;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
@@ -330,9 +331,9 @@ class FloatWindow(QWidget):
             }}
 
             QTextEdit#resultArea {{
-                background-color: rgba(10, 10, 18, 200);
+                background-color: rgba(45, 45, 45, 200);
                 color: #D4D4D4;
-                border: 1px solid rgba(156, 39, 176, 0.3);
+                border: 1px solid rgba(0, 122, 204, 0.3);
                 border-radius: 8px;
                 font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
                 font-size: {self._current_font_size}pt;
@@ -340,59 +341,62 @@ class FloatWindow(QWidget):
                 selection-background-color: #264F78;
             }}
 
-            QPushButton[btnColor="#4CAF50"] {{
-                background-color: #4CAF50; color:white; border:none;
+            QPushButton[btnType="summary"] {{
+                background-color: transparent; color:#D4D4D4;
+                border: 1px solid #2D2D2D;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }}
-            QPushButton[btnColor="#4CAF50"]:hover   {{ background-color:#66BB6A; }}
-            QPushButton[btnColor="#4CAF50"]:pressed  {{ background-color:#388E3C; }}
-            QPushButton[btnColor="#4CAF50"]:disabled {{ background-color:#2E5E30; color:#666; }}
+            QPushButton[btnType="summary"]:hover   {{ background-color: rgba(255, 255, 255, 0.1); }}
+            QPushButton[btnType="summary"]:pressed  {{ background-color: rgba(255, 255, 255, 0.2); }}
+            QPushButton[btnType="summary"]:disabled {{ color:#666; border-color:#2D2D2D; }}
 
-            QPushButton[btnColor="#2196F3"] {{
-                background-color: #2196F3; color:white; border:none;
+            QPushButton[btnType="question"] {{
+                background-color: transparent; color:#D4D4D4;
+                border: 1px solid #007ACC;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }}
-            QPushButton[btnColor="#2196F3"]:hover   {{ background-color:#42A5F5; }}
-            QPushButton[btnColor="#2196F3"]:pressed  {{ background-color:#1565C0; }}
-            QPushButton[btnColor="#2196F3"]:disabled {{ background-color:#1A3A6E; color:#666; }}
+            QPushButton[btnType="question"]:hover   {{ background-color: rgba(0, 122, 204, 0.2); }}
+            QPushButton[btnType="question"]:pressed  {{ background-color: rgba(0, 122, 204, 0.4); }}
+            QPushButton[btnType="question"]:disabled {{ color:#666; border-color:#1A3A6E; }}
 
-            QPushButton[btnColor="#FF9800"] {{
-                background-color: #FF9800; color:white; border:none;
+            QPushButton[btnType="correction"] {{
+                background-color: transparent; color:#D4D4D4;
+                border: 1px solid #6A9955;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }}
-            QPushButton[btnColor="#FF9800"]:hover   {{ background-color:#FFA726; }}
-            QPushButton[btnColor="#FF9800"]:pressed  {{ background-color:#E65100; }}
-            QPushButton[btnColor="#FF9800"]:disabled {{ background-color:#7A4A00; color:#666; }}
+            QPushButton[btnType="correction"]:hover   {{ background-color: rgba(106, 153, 85, 0.2); }}
+            QPushButton[btnType="correction"]:pressed  {{ background-color: rgba(106, 153, 85, 0.4); }}
+            QPushButton[btnType="correction"]:disabled {{ color:#666; border-color:#2E5E30; }}
 
-            QPushButton[btnColor="#9C27B0"] {{
-                background-color: #9C27B0; color:white; border:none;
+            QPushButton[btnType="chat"] {{
+                background-color: #007ACC; color:white; border:none;
                 border-radius:8px; font-weight:bold;
                 font-family:"Segoe UI","Yu Gothic UI",sans-serif; font-size:12pt;
             }}
-            QPushButton[btnColor="#9C27B0"]:hover   {{ background-color:#AB47BC; }}
-            QPushButton[btnColor="#9C27B0"]:pressed  {{ background-color:#6A1B9A; }}
-            QPushButton[btnColor="#9C27B0"]:disabled {{ background-color:#4A1260; color:#666; }}
+            QPushButton[btnType="chat"]:hover   {{ background-color:#1F8AD2; }}
+            QPushButton[btnType="chat"]:pressed  {{ background-color:#005A9E; }}
+            QPushButton[btnType="chat"]:disabled {{ background-color:#1A3A6E; color:#666; }}
 
             QPushButton#btnClear {{
                 background-color: transparent;
                 color: #888;
-                border: 1px solid rgba(255, 255, 255, 0.2);
+                border: 1px solid #E64040;
                 border-radius: 8px;
                 font-size: 14pt;
             }}
             QPushButton#btnClear:hover {{
-                background-color: rgba(255, 80, 80, 0.2);
-                border-color: rgba(255, 80, 80, 0.5);
+                background-color: rgba(230, 64, 64, 0.2);
                 color: white;
             }}
             QPushButton#btnClear:pressed {{
-                background-color: rgba(255, 80, 80, 0.4);
+                background-color: rgba(230, 64, 64, 0.4);
             }}
             QPushButton#btnClear:disabled {{
                 background-color: rgba(255, 255, 255, 0.05);
+                border-color: rgba(255, 255, 255, 0.1);
                 color: #666;
             }}
         """)
