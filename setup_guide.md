@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 > **含まれる主なライブラリ**
 > - `PyQt6`: GUIフレームワーク（フロートウィンドウやシステムトレイの表示）
-> - `pynput`: グローバルショートカット（デフォルト: ctrl+shift+space）の監視
+> - `pynput`: グローバルショートカット（デフォルト: ctrl+shift+q）の監視
 > - `pyautogui`: クリップボード取得のためのキーシミュレーション（一部利用）
 > - `openai`: Azure OpenAIとの通信APIクライアント
 > - `python-dotenv`: `.env` ファイルからの環境変数読み込み
@@ -82,9 +82,9 @@ HTTP_PROXY="http://{username}:{password}@proxyserver:port"
 HTTPS_PROXY="http://{username}:{password}@proxyserver:port"
 
 # ====== グローバルショートカットキー設定 ======
-# アプリケーションを呼び出すためのショートカットキーを設定します。（デフォルト: ctrl+shift+space）
+# アプリケーションを呼び出すためのショートカットキーを設定します。（デフォルト: ctrl+shift+q）
 # 「+」区切りでキーを指定してください。（例: ctrl+space, alt+space, ctrl+shift+c など）
-GLOBAL_SHORTCUT="ctrl+shift+space"
+GLOBAL_SHORTCUT="ctrl+shift+q"
 ```
 
 > **⚠️ 注意点**
@@ -105,7 +105,7 @@ python main.py
 ```
 
 3. 起動すると、画面右下のタスクトレイ（時計の横）にアイコンが表示され、バックグラウンド待機状態になります。
-4. 適当なテキストを選択（ハイライト）した状態でショートカットキー（デフォルト: `ctrl + shift + space`）を押し、**すべての指を離す**と、画面中央にフロートウィンドウが表示されます。
+4. 適当なテキストを選択（ハイライト）した状態でショートカットキー（デフォルト: `ctrl + shift + q`）を押し、**すべての指を離す**と、画面中央にフロートウィンドウが表示されます。
 
 ---
 

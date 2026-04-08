@@ -512,9 +512,9 @@ class FloatWindow(QWidget):
             h_scrollbar = self._history_area.verticalScrollBar()
             h_scrollbar.setValue(h_scrollbar.maximum())
 
-        # スクロールバーを一番下に移動する
+        # スクロールバーを一番上に移動する (長い回答を読みやすくするため)
         scrollbar = self._result_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        scrollbar.setValue(scrollbar.minimum())
 
         # トグルボタンを有効化
         self._history_toggle_btn.setEnabled(True)
