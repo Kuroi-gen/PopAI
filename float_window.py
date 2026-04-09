@@ -552,7 +552,6 @@ class FloatWindow(QWidget):
         if enabled:
             # エラー色をリセット
             self._result_area.setStyleSheet("")
-            self._apply_style()
 
     # ------------------------------------------------------------------ #
     # イベントオーバーライド (ドラッグ移動 / フォントサイズ変更)
